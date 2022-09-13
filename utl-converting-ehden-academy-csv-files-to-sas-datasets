@@ -1,0 +1,683 @@
+/***********************************************************************************************/
+/*                                                                                             */
+/*  %let pgm=cdm_100csv;                                                                       */
+/*                                                                                             */
+/*  libname nrd "d:/cdm";                                                                      */
+/*                                                                                             */
+/*  %let overview =cdm harmonizing clinical data international standards;                      */
+/*  %let purpose  =converting ehden academy csv files to sas datasets;                         */
+/*                                                                                             */
+/*  Description                                                                                */
+/*                                                                                             */
+/*   The long variable names are stored in the label attribute of a SAS v5                     */
+/*   transport file. SS can then easily exchange the 8 char names in the transort file         */
+/*   with the longer names from the label.                                                     */
+/*                                                                                             */
+/*  PROJECT TOKEN = utl                                                                        */
+/*                                                                                             */
+/*  OPSYS  WIN 10 32bit SAS 9.4M1(32bit)  R-4.0.2 64bit                                        */
+/*                                                                                             */
+/* INTERNAL MACROS and R PACKAGES                                                              */
+/* ==============================                                                              */
+/*                                                                                             */
+/*  library(RJDBC);                                                                            */
+/*  library(haven);                                                                            */
+/*  library(sqldf);                                                                            */
+/*                                                                                             */
+/* EXTERNAL MACROS IN AUTOCALL LIBRARY                                                         */
+/* ====================================                                                        */
+/*                                                                                             */
+/*   utlsubmit_r64  (call R from SAS)                                                          */
+/*   utl_optlen     (reduce size of SAS table)                                                 */
+/*   utl_rens       (on end)                                                                   */
+/*   utl_submit_r64 (drop down to R from SAS)                                                  */
+/*                                                                                             */
+/*   _                   _                                                                     */
+/*  (_)_ __  _ __  _   _| |_                                                                   */
+/*  | | `_ \| `_ \| | | | __|                                                                  */
+/*  | | | | | |_) | |_| | |_                                                                   */
+/*  |_|_| |_| .__/ \__,_|\__|                                                                  */
+/*          |_|                                                                                */
+/*                                                                                             */
+/*  D:\CDM                                                                                     */
+/*                                                                                             */
+/*  +---csv                                                                                    */
+/*  |   |   CONCEPT.csv                                                                        */
+/*  |   |   CONCEPT_ANCESTOR.csv                                                               */
+/*  |   |   CONCEPT_CLASS.csv                                                                  */
+/*  |   |   CONCEPT_RELATIONSHIP.csv                                                           */
+/*  |   |   CONCEPT_SYNONYM.csv                                                                */
+/*  |   |   DOMAIN.csv                                                                         */
+/*  |   |   DRUG_STRENGTH.csv                                                                  */
+/*  |   |   RELATIONSHIP.csv                                                                   */
+/*  |   |   VOCABULARY.csv                                                                     */
+/*  |   \   readme.txt                                                                         */
+/*  |                                                                                          */
+/*  |                                                                                          */
+/*  +---lnk                                                                                    */
+/*  |       readme.txt                                                                         */
+/*  |                                                                                          */
+/*  \---zip                                                                                    */
+/*          readme.txt                                                                         */
+/*          csv.exe                                                                            */
+/*          vocabulary_download_v5_{d886e886-7585-4e5d-8ef1-0620ef0b7df0}_1620237802182.zip    */
+/*                                                                                             */
+/*   _ __  _ __ ___   ___ ___  ___ ___                                                         */
+/*  | `_ \| `__/ _ \ / __/ _ \/ __/ __|                                                        */
+/*  | |_) | | | (_) | (_|  __/\__ \__ \                                                        */
+/*  | .__/|_|  \___/ \___\___||___/___/                                                        */
+/*  |_|                                                                                        */
+/*                                                                                             */
+/*   proc import file ="d:/cdm/csv/&dsn..csv" db  ms=dlm replace out=cdm.&dsn                    */
+/*              dbms=dlm;                                                                      */
+/*              getnames=yes;                                                                  */
+/*              guessingrows=32000;                                                            */
+/*              delimiter='09'x;                                                               */
+/*   run;quit;                                                                                 */
+/*               _               _                                                             */
+/*    ___  _   _| |_ _ __  _   _| |_                                                           */
+/*   / _ \| | | | __| `_ \| | | | __|                                                          */
+/*  | (_) | |_| | |_| |_) | |_| | |_                                                           */
+/*   \___/ \__,_|\__| .__/ \__,_|\__|                                                          */
+/*                  |_|                                                                        */
+/*                                                                                             */
+/*   SAS Tables                                                                                */
+/*                                                                                             */
+/*                        Member  Obs, Entries                                                 */
+/*  Name                  Type     or Indexes      Vars   File Size  Last Modified             */
+/*                                                                                             */
+/*  CONCEPT               DATA       5,616,861     10        743MB  06/29/2021 08:36:04        */
+/*  CONCEPT_ANCESTOR      DATA      64,519,169      4          2GB  06/29/2021 08:39:31        */
+/*  CONCEPT_CLASS         DATA             414      3        192KB  06/29/2021 08:19:29        */
+/*  CONCEPT_RELATIONSHIP  DATA      40,857,354      6          2GB  06/29/2021 08:42:13        */
+/*  CONCEPT_SYNONYM       DATA       1,763,415      3        161MB  06/29/2021 08:34:19        */
+/*  DOMAIN                DATA              48      3        192KB  06/29/2021 08:18:29        */
+/*  DRUG_STRENGTH         DATA       2,829,860     12        178MB  06/29/2021 08:33:13        */
+/*  RELATIONSHIP          DATA             618      6        192KB  06/29/2021 08:19:38        */
+/*  VOCABULARY            DATA              57      5        192KB  06/29/2021 08:32:37        */
+/*                                                                                             */
+/*                                                                                             */
+/***********************************************************************************************/
+/*                                                                                             */
+/* CHANGE HISTORY                                                                              */
+/*                                                                                             */
+/*      Date          Programmer                     Comments                                  */
+/*                                                                                             */
+/*  1.  06/28/2021    rogerjdeangelis@gmail.com                                                */
+/*                                                                                             */
+/*                                                                                             */
+/***********************************************************************************************/
+
+* Directory tree to paste buffer;
+*x 'tree "d:/cdm" /F /A | clip';
+
+/***********************************************************************************************/
+/*                                                                                             */
+/*  IMPORT CSVS                                                                                */
+/*                                                                                             */
+/*  D:\CDM                                                                                     */
+/*  +---csv                                                                                    */
+/*  |       CONCEPT.csv                                                                        */
+/*  |       CONCEPT_ANCESTOR.csv                                                               */
+/*  |       CONCEPT_CLASS.csv                                                                  */
+/*  |       CONCEPT_RELATIONSHIP.csv                                                           */
+/*  |       CONCEPT_SYNONYM.csv                                                                */
+/*  |       DOMAIN.csv                                                                         */
+/*  |       DRUG_STRENGTH.csv                                                                  */
+/*  |       RELATIONSHIP.csv                                                                   */
+/*  \       VOCABULARY.csv                                                                     */
+/*                                                                                             */
+/***********************************************************************************************/
+
+%let pgm=cdm_100csv;
+
+libname cdm "d:/cdm";
+
+options compress=char;
+
+* make all char lengths 300; /* it appears that 255 is the max in all CDN csv files:
+
+/*   _                       _
+  __| | ___  _ __ ___   __ _(_)_ __
+ / _` |/ _ \| `_ ` _ \ / _` | | `_ \
+| (_| | (_) | | | | | | (_| | | | | |
+ \__,_|\___/|_| |_| |_|\__,_|_|_| |_|
+
+*/
+
+/**********************************************************************
+*   PRODUCT:   SAS
+*   VERSION:   9.4
+*   CREATOR:   External File Interface
+*   DATE:      29JUN21
+*   DESC:      Generated SAS Datastep Code
+*   TEMPLATE SOURCE:  (None Specified.)
+***********************************************************************/
+data DOMAIN    ;
+%let _EFIERR_ = 0; /* set the ERROR detection macro variable */
+infile 'd:/cdm/csv/DOMAIN.csv' delimiter='09'x MISSOVER DSD lrecl=4096 firstobs=2 ;
+   informat domain_id                     $300. ;
+   informat domain_name                   $300. ;
+   informat domain_concept_id best32. ;
+input
+            domain_id       $
+            domain_name     $
+            domain_concept_id
+;
+if _ERROR_ then call symputx('_EFIERR_',1);  /* set ERROR detection macro variable */
+run;
+
+%utl_optlen(inp=domain,out=cdm.domain,compress=char);
+
+proc datasets lib=cdm nodetails nolist;
+  modify domain;
+    informat _all_;
+run;quit;
+
+/*
+     Variables in Creation Order
+
+#    Variable             Type    Len
+
+1    DOMAIN_ID            Char     19
+2    DOMAIN_NAME          Char    101
+3    DOMAIN_CONCEPT_ID    Num       4
+*/
+
+/*                              _          _
+  ___ ___  _ __   ___ ___ _ __ | |_    ___| | __ _ ___ ___
+ / __/ _ \| `_ \ / __/ _ \ `_ \| __|  / __| |/ _` / __/ __|
+| (_| (_) | | | | (_|  __/ |_) | |_  | (__| | (_| \__ \__ \
+ \___\___/|_| |_|\___\___| .__/ \__|  \___|_|\__,_|___/___/
+                         |_|
+*/
+
+/**********************************************************************
+*   PRODUCT:   SAS
+*   VERSION:   9.4
+*   CREATOR:   External File Interface
+*   DATE:      29JUN21
+*   DESC:      Generated SAS Datastep Code
+*   TEMPLATE SOURCE:  (None Specified.)
+***********************************************************************/
+data CONCEPT_CLASS    ;
+%let _EFIERR_ = 0; /* set the ERROR detection macro variable */
+infile 'd:/cdm/csv/CONCEPT_CLASS.csv' delimiter='09'x MISSOVER DSD lrecl=4096 firstobs=2 ;
+   informat concept_class_id          $300. ;
+   informat concept_class_name        $300. ;
+   informat concept_class_concept_id best32. ;
+input
+            concept_class_id    $
+            concept_class_name  $
+            concept_class_concept_id
+;
+if _ERROR_ then call symputx('_EFIERR_',1);  /* set ERROR detection macro variable */
+run;
+
+%utl_optlen(inp=CONCEPT_CLASS,out=cdm.CONCEPT_CLASS,compress=char);
+
+proc datasets lib=cdm nodetails nolist;
+  modify CONCEPT_CLASS;
+    informat _all_;
+run;quit;
+
+/*
+         Variables in Creation Order
+
+#    Variable                    Type    Len
+
+1    CONCEPT_CLASS_ID            Char     20
+2    CONCEPT_CLASS_NAME          Char     99
+3    CONCEPT_CLASS_CONCEPT_ID    Num       5
+*/
+
+/*        _       _   _                 _     _
+ _ __ ___| | __ _| |_(_) ___  _ __  ___| |__ (_)_ __
+| `__/ _ \ |/ _` | __| |/ _ \| `_ \/ __| `_ \| | `_ \
+| | |  __/ | (_| | |_| | (_) | | | \__ \ | | | | |_) |
+|_|  \___|_|\__,_|\__|_|\___/|_| |_|___/_| |_|_| .__/
+                                               |_|
+*/
+
+/**********************************************************************
+*   PRODUCT:   SAS
+*   VERSION:   9.4
+*   CREATOR:   External File Interface
+*   DATE:      29JUN21
+*   DESC:      Generated SAS Datastep Code
+*   TEMPLATE SOURCE:  (None Specified.)
+***********************************************************************/
+
+%let imp=RELATIONSHIP;
+
+data &imp    ;
+%let _EFIERR_ = 0; /* set the ERROR detection macro variable */
+infile 'd:/cdm/csv/RELATIONSHIP.csv' delimiter='09'x MISSOVER DSD lrecl=4096 firstobs=2 ;
+   informat relationship_id            $300. ;
+   informat relationship_name          $300. ;
+   informat is_hierarchical best32. ;
+   informat defines_ancestry best32. ;
+   informat reverse_relationship_id    $300. ;
+   informat relationship_concept_id best32. ;
+input
+            relationship_id  $
+            relationship_name  $
+            is_hierarchical
+            defines_ancestry
+            reverse_relationship_id  $
+            relationship_concept_id
+;
+if _ERROR_ then call symputx('_EFIERR_',1);  /* set ERROR detection macro variable */
+run;
+
+%utl_optlen(inp=&imp,out=cdm.&imp,compress=char);
+
+proc datasets lib=cdm nodetails nolist;
+  modify &imp;
+    informat _all_;
+run;quit;
+
+/*
+        Variables in Creation Order
+
+#    Variable                   Type    Len
+
+1    RELATIONSHIP_ID            Char     20
+2    RELATIONSHIP_NAME          Char    116
+3    IS_HIERARCHICAL            Num       3
+4    DEFINES_ANCESTRY           Num       3
+5    REVERSE_RELATIONSHIP_ID    Char     20
+6    RELATIONSHIP_CONCEPT_ID    Num       5
+*/
+
+/*                    _           _
+__   _____   ___ __ _| |__  _   _| | __ _ _ __ _   _
+\ \ / / _ \ / __/ _` | `_ \| | | | |/ _` | `__| | | |
+ \ V / (_) | (_| (_| | |_) | |_| | | (_| | |  | |_| |
+  \_/ \___/ \___\__,_|_.__/ \__,_|_|\__,_|_|   \__, |
+                                               |___/
+*/
+
+%let imp=vocabulary;
+
+/**********************************************************************
+*   PRODUCT:   SAS
+*   VERSION:   9.4
+*   CREATOR:   External File Interface
+*   DATE:      29JUN21
+*   DESC:      Generated SAS Datastep Code
+*   TEMPLATE SOURCE:  (None Specified.)
+***********************************************************************/
+data &imp    ;
+%let _EFIERR_ = 0; /* set the ERROR detection macro variable */
+infile 'd:/cdm/csv/VOCABULARY.csv' delimiter='09'x MISSOVER DSD lrecl=4096 firstobs=2 ;
+   informat vocabulary_id            $300.;
+   informat vocabulary_name          $300.;
+   informat vocabulary_reference     $300.;
+   informat vocabulary_version       $300.;
+   informat vocabulary_concept_id best32. ;
+input
+            vocabulary_id  $
+            vocabulary_name  $
+            vocabulary_reference  $
+            vocabulary_version  $
+            vocabulary_concept_id
+;
+if _ERROR_ then call symputx('_EFIERR_',1);  /* set ERROR detection macro variable */
+run;
+
+
+%utl_optlen(inp=&imp,out=cdm.&imp,compress=char);
+
+proc datasets lib=cdm nodetails nolist;
+  modify &imp;
+    informat _all_;
+run;quit;
+
+/*
+       Variables in Creation Order
+
+#    Variable                 Type    Len
+
+1    VOCABULARY_ID            Char     20
+2    VOCABULARY_NAME          Char    102
+3    VOCABULARY_REFERENCE     Char    142
+4    VOCABULARY_VERSION       Char    108
+5    VOCABULARY_CONCEPT_ID    Num       5
+*/
+
+/*   _                          _                        _   _
+  __| |_ __ _   _  __ _     ___| |_ _ __ ___ _ __   __ _| |_| |__
+ / _` | `__| | | |/ _` |   / __| __| `__/ _ \ `_ \ / _` | __| `_ \
+| (_| | |  | |_| | (_| |   \__ \ |_| | |  __/ | | | (_| | |_| | | |
+ \__,_|_|   \__,_|\__, |___|___/\__|_|  \___|_| |_|\__, |\__|_| |_|
+                  |___/_____|                      |___/
+*/
+
+%let imp=DRUG_STRENGTH;
+
+/**********************************************************************
+*   PRODUCT:   SAS
+*   VERSION:   9.4
+*   CREATOR:   External File Interface
+*   DATE:      29JUN21
+*   DESC:      Generated SAS Datastep Code
+*   TEMPLATE SOURCE:  (None Specified.)
+***********************************************************************/
+data &imp    ;
+%let _EFIERR_ = 0; /* set the ERROR detection macro variable */
+infile 'd:/cdm/csv/DRUG_STRENGTH.csv' delimiter='09'x MISSOVER DSD lrecl=4096 firstobs=2 ;
+   informat drug_concept_id best32. ;
+   informat ingredient_concept_id best32. ;
+   informat amount_value best32. ;
+   informat amount_unit_concept_id best32. ;
+   informat numerator_value best32. ;
+   informat numerator_unit_concept_id best32. ;
+   informat denominator_value best32. ;
+   informat denominator_unit_concept_id best32. ;
+   informat box_size best32. ;
+   informat valid_start_date best32. ;
+   informat valid_end_date best32. ;
+   informat invalid_reason $10. ;
+input
+            drug_concept_id
+            ingredient_concept_id
+            amount_value
+            amount_unit_concept_id
+            numerator_value
+            numerator_unit_concept_id
+            denominator_value
+            denominator_unit_concept_id
+            box_size
+            valid_start_date
+            valid_end_date
+            invalid_reason  $
+;
+if _ERROR_ then call symputx('_EFIERR_',1);  /* set ERROR detection macro variable */
+run;
+
+%utl_optlen(inp=&imp,out=cdm.&imp,compress=char);
+
+proc datasets lib=cdm nodetails nolist;
+  modify &imp;
+    informat _all_;
+run;quit;
+
+/*
+          Variables in Creation Order
+
+#    Variable                       Type    Len
+
+1    DRUG_CONCEPT_ID                Num       5
+2    INGREDIENT_CONCEPT_ID          Num       5
+3    AMOUNT_VALUE                   Num       8
+4    AMOUNT_UNIT_CONCEPT_ID         Num       5
+5    NUMERATOR_VALUE                Num       8
+6    NUMERATOR_UNIT_CONCEPT_ID      Num       5
+7    DENOMINATOR_VALUE              Num       8
+8    DENOMINATOR_UNIT_CONCEPT_ID    Num       5
+9    BOX_SIZE                       Num       3
+0    VALID_START_DATE               Num       5
+1    VALID_END_DATE                 Num       5
+2    INVALID_REASON                 Char      1
+*/
+
+/*                              _
+  ___ ___  _ __   ___ ___ _ __ | |_
+ / __/ _ \| `_ \ / __/ _ \ `_ \| __|
+| (_| (_) | | | | (_|  __/ |_) | |_
+ \___\___/|_| |_|\___\___| .__/ \__|
+                         |_|
+ ___ _   _ _ __   ___  _ __  _   _ _ __ ___
+/ __| | | | `_ \ / _ \| `_ \| | | | `_ ` _ \
+\__ \ |_| | | | | (_) | | | | |_| | | | | | |
+|___/\__, |_| |_|\___/|_| |_|\__, |_| |_| |_|
+     |___/                   |___/
+*/
+
+
+%let imp=concept_synonym;
+
+/**********************************************************************
+*   PRODUCT:   SAS
+*   VERSION:   9.4
+*   CREATOR:   External File Interface
+*   DATE:      29JUN21
+*   DESC:      Generated SAS Datastep Code
+*   TEMPLATE SOURCE:  (None Specified.)
+***********************************************************************/
+
+ data &imp    ;
+ %let _EFIERR_ = 0; /* set the ERROR detection macro variable */
+ infile "d:/cdm/csv/&imp..csv" delimiter='09'x MISSOVER DSD lrecl=4096 firstobs=2 ;
+    informat concept_id best32. ;
+    informat concept_synonym_name $2096. ;
+    informat language_concept_id best32. ;
+ input
+             concept_id
+             concept_synonym_name  $
+             language_concept_id
+ ;
+ if _ERROR_ then call symputx('_EFIERR_',1);  /* set ERROR detection macro variable */
+ run;
+
+%utl_optlen(inp=&imp,out=cdm.&imp,compress=char);
+
+proc datasets lib=cdm nodetails nolist;
+  modify &imp;
+    informat _all_;
+run;quit;
+
+/*
+       Variables in Creation Order
+
+#    Variable                Type     Len
+
+1    CONCEPT_ID              Num        5
+2    CONCEPT_SYNONYM_NAME    Char    1000
+3    LANGUAGE_CONCEPT_ID     Num        5
+*/
+
+/*                              _
+  ___ ___  _ __   ___ ___ _ __ | |_
+ / __/ _ \| `_ \ / __/ _ \ `_ \| __|
+| (_| (_) | | | | (_|  __/ |_) | |_
+ \___\___/|_| |_|\___\___| .__/ \__|
+                         |_|
+*/
+
+options obs=max;
+
+%let imp=concept;
+
+/**********************************************************************
+*   PRODUCT:   SAS
+*   VERSION:   9.4
+*   CREATOR:   External File Interface
+*   DATE:      29JUN21
+*   DESC:      Generated SAS Datastep Code
+*   TEMPLATE SOURCE:  (None Specified.)
+***********************************************************************/
+data &imp    ;
+%let _EFIERR_ = 0; /* set the ERROR detection macro variable */
+infile "d:/cdm/csv/&imp..csv" delimiter='09'x MISSOVER DSD lrecl=2096 firstobs=2 ;
+   informat concept_id best32. ;
+   informat concept_name             $300.;
+   informat domain_id                $300.;
+   informat vocabulary_id            $300.;
+   informat concept_class_id         $300.;
+   informat standard_concept         $300.;
+   informat concept_code             $300.;
+   informat valid_start_date best32. ;
+   informat valid_end_date best32. ;
+   informat invalid_reason           $10.;
+input
+            concept_id
+            concept_name  $
+            domain_id  $
+            vocabulary_id  $
+            concept_class_id  $
+            standard_concept  $
+            concept_code  $
+            valid_start_date
+            valid_end_date
+            invalid_reason  $
+;
+if _ERROR_ then call symputx('_EFIERR_',1);  /* set ERROR detection macro variable */
+run;
+
+
+%utl_optlen(inp=&imp,out=cdm.&imp,compress=char);
+
+proc datasets lib=cdm nodetails nolist;
+  modify &imp;
+    informat _all_;
+run;quit;
+
+/*
+     Variables in Creation Order
+
+ #    Variable            Type    Len
+
+ 1    CONCEPT_ID          Num       5
+ 2    CONCEPT_NAME        Char    255
+ 3    DOMAIN_ID           Char     19
+ 4    VOCABULARY_ID       Char     20
+ 5    CONCEPT_CLASS_ID    Char     20
+ 6    STANDARD_CONCEPT    Char      1
+ 7    CONCEPT_CODE        Char     50
+ 8    VALID_START_DATE    Num       5
+ 9    VALID_END_DATE      Num       5
+10    INVALID_REASON      Char      1
+*/
+
+/*                              _
+  ___ ___  _ __   ___ ___ _ __ | |_
+ / __/ _ \| `_ \ / __/ _ \ `_ \| __|
+| (_| (_) | | | | (_|  __/ |_) | |_
+ \___\___/|_| |_|\___\___| .__/ \__|
+                         |_|
+          _       _   _                 _     _
+ _ __ ___| | __ _| |_(_) ___  _ __  ___| |__ (_)_ __
+| `__/ _ \ |/ _` | __| |/ _ \| `_ \/ __| `_ \| | `_ \
+| | |  __/ | (_| | |_| | (_) | | | \__ \ | | | | |_) |
+|_|  \___|_|\__,_|\__|_|\___/|_| |_|___/_| |_|_| .__/
+                                               |_|
+*/
+
+options obs=max;
+
+%let imp=CONCEPT_RELATIONSHIP;
+
+/**********************************************************************
+*   PRODUCT:   SAS
+*   VERSION:   9.4
+*   CREATOR:   External File Interface
+*   DATE:      29JUN21
+*   DESC:      Generated SAS Datastep Code
+*   TEMPLATE SOURCE:  (None Specified.)
+***********************************************************************/
+   data &imp    ;
+   %let _EFIERR_ = 0; /* set the ERROR detection macro variable */
+   infile 'd:/cdm/csv/CONCEPT_RELATIONSHIP.csv' delimiter='09'x MISSOVER DSD lrecl=2096 firstobs=2;
+      informat concept_id_1 best32. ;
+      informat concept_id_2 best32. ;
+      informat relationship_id $300. ;
+      informat valid_start_date best32. ;
+      informat valid_end_date best32. ;
+      informat invalid_reason $10. ;
+   input
+               concept_id_1
+               concept_id_2
+               relationship_id  $
+               valid_start_date
+               valid_end_date
+               invalid_reason  $
+   ;
+   if _ERROR_ then call symputx('_EFIERR_',1);  /* set ERROR detection macro variable */
+   run;
+
+%utl_optlen(inp=&imp,out=cdm.&imp,compress=char);
+
+proc datasets lib=cdm nodetails nolist;
+  modify &imp;
+    informat _all_;
+run;quit;
+
+/*
+     Variables in Creation Order
+
+#    Variable            Type    Len
+
+1    CONCEPT_ID_1        Num       5
+2    CONCEPT_ID_2        Num       5
+3    RELATIONSHIP_ID     Char     20
+4    VALID_START_DATE    Num       5
+5    VALID_END_DATE      Num       5
+6    INVALID_REASON      Char      1
+*/
+
+
+/*                              _                               _
+  ___ ___  _ __   ___ ___ _ __ | |_    __ _ _ __   ___ ___  ___| |_ ___  _ __
+ / __/ _ \| `_ \ / __/ _ \ `_ \| __|  / _` | `_ \ / __/ _ \/ __| __/ _ \| `__|
+| (_| (_) | | | | (_|  __/ |_) | |_  | (_| | | | | (_|  __/\__ \ || (_) | |
+ \___\___/|_| |_|\___\___| .__/ \__|  \__,_|_| |_|\___\___||___/\__\___/|_|
+                         |_|
+*/
+
+%let imp=CONCEPT_ANCESTOR;
+
+/**********************************************************************
+*   PRODUCT:   SAS
+*   VERSION:   9.4
+*   CREATOR:   External File Interface
+*   DATE:      29JUN21
+*   DESC:      Generated SAS Datastep Code
+*   TEMPLATE SOURCE:  (None Specified.)
+***********************************************************************/
+data CONCEPT_ANCESTOR    ;
+%let _EFIERR_ = 0; /* set the ERROR detection macro variable */
+infile 'd:/cdm/csv/CONCEPT_ANCESTOR.csv' delimiter='09'x MISSOVER DSD lrecl=384 firstobs=2 ;
+   informat ancestor_concept_id best32. ;
+   informat descendant_concept_id best32. ;
+   informat min_levels_of_separation best32. ;
+   informat max_levels_of_separation best32. ;
+input
+            ancestor_concept_id
+            descendant_concept_id
+            min_levels_of_separation
+            max_levels_of_separation
+;
+if _ERROR_ then call symputx('_EFIERR_',1);  /* set ERROR detection macro variable */
+run;
+
+%utl_optlen(inp=&imp,out=cdm.&imp,compress=char);
+
+proc datasets lib=cdm nodetails nolist;
+  modify &imp;
+    informat _all_;
+    format _all_;
+run;quit;
+
+/*
+         Variables in Creation Order
+
+#    Variable                    Type    Len
+
+1    ANCESTOR_CONCEPT_ID         Num       5
+2    DESCENDANT_CONCEPT_ID       Num       5
+3    MIN_LEVELS_OF_SEPARATION    Num       3
+4    MAX_LEVELS_OF_SEPARATION    Num       3
+*/
+
+/*              _
+  ___ _ __   __| |
+ / _ \ `_ \ / _` |
+|  __/ | | | (_| |
+ \___|_| |_|\__,_|
+
+*/
+
+proc contents data=cdm._all_;
+run;quit;
