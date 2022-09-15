@@ -45,7 +45,7 @@ Adapting the OHSDI-OMOP Common Data Model for Clinical Mapping
     Source: https://academy.ehden.eu/  Common Meta Model Schema
 
     D:\cdm
-    |   concept.sas7bdat              ==> we only this for now
+    |   concept.sas7bdat              ==> we only need this for now
     |   concept_ancestor.sas7bdat
     |   concept_class.sas7bdat
     |   concept_relationship.sas7bdat
