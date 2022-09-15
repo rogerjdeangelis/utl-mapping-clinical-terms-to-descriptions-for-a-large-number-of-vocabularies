@@ -2,11 +2,11 @@
 
 OHSDI does not appear to have ICD11 codes yet.
 
-The question is often more interestting than the anwswer, think about jeopardy.
+The question is often more interesting than the answer, think about jeopardy.
 
-The comman data model is a great way to explore questions you might want pursue.
+The comman data model is a great way to explore questions you might want to pursue.
 
-Suppose you want to know all the answers that relate to 'age-related cataracts' in the OHSDI Concept table;
+Suppose you want to know all the codes relating to answers that reference 'age-related cataracts' in the OHSDI Concept table;
 
 proc sql;
   create
